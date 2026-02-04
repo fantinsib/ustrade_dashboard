@@ -8,7 +8,7 @@ import time
 
 st.set_page_config(layout="wide")
 
-if st.sidebar.button("Clear cache"):
+if st.sidebar.button("Clear cache"): 
     st.cache_data.clear()
     st.session_state.clear()
     st.rerun()
