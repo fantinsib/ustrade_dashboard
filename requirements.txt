@@ -1,0 +1,4 @@
+ustrade
+numpy
+pandas
+plotly
