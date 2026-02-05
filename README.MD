@@ -18,27 +18,14 @@ The left-hand panel allows users to select:
 
 The first two charts show the evolution of import/export values for the selected product, both in absolute terms and as a year-over-year (YoY) percentage change.
 
-![ustrade_analytics](img/ustrade_analytics.png)
-
-***
-
 The third chart decomposes the selected HS code flow into its child codes, showing the contribution of each sub-category.
-
-
-![ustrade_analytics](img/decomposition.png)
-
-***
 
 Data can be downloaded as CSV files directly from the application.
 
-![ustrade_analytics](img/dfs.png)
+The HS code lookup panel allows to search for and explore HS codes and their descriptions.
 
-***
+![GIF demo](img/ustrade_dashboard_demo.gif)
 
-The HS code lookup panel allows users to search for and explore HS codes and their descriptions.
-
-
-![ustrade_analytics](img/hs_code_lookup.png)
 
 
 
