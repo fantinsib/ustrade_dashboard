@@ -1,4 +1,4 @@
-ustrade
+ustrade==0.5.0
 numpy
 pandas
 plotly
