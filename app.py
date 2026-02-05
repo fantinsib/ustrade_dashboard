@@ -3,15 +3,28 @@ import ustrade as ut
 import numpy as np
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
+import plots
 from datetime import timedelta
 import time
 
-st.set_page_config(layout="wide")
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background:
+            radial-gradient(1200px 600px at 10% 0%, rgba(255,255,255,0.10), transparent 60%),
+            radial-gradient(900px 500px at 90% 10%, rgba(255,255,255,0.08), transparent 55%),
+            radial-gradient(700px 420px at 50% 90%, rgba(255,255,255,0.06), transparent 60%),
+            #151a21;
+        color: rgba(255,255,255,0.92);
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
-if st.sidebar.button("Clear cache"): 
-    st.cache_data.clear()
-    st.session_state.clear()
-    st.rerun()
+st.set_page_config(layout="wide")
 
 if "requested" not in st.session_state:
     st.session_state.requested = False
@@ -20,30 +33,43 @@ if "df" not in st.session_state:
     st.session_state.df = None
     st.session_state.df_sub = None
 
-c = ut.CensusClient(timeout=600)
+c = ut.CensusClient(timeout=60)
 
 
-@st.cache_data(show_spinner = False)
+@st.cache_data(show_spinner=False)
 def get_exp(cty, prod, beg_date, end_date):
-    for _ in range(5):
-        try:
-            return c.get_exports_on_period(cty, prod, beg_date, end_date)
-        except Exception as e:
-            last_err = e
-            time.sleep(0.5)
-    raise RuntimeError("Exports request failed after 5 attempts") from last_err
+    return c.get_exports_on_period(cty, prod, beg_date, end_date)
 
-@st.cache_data(show_spinner = False)
+@st.cache_data(show_spinner=False)
 def get_imp(cty, prod, beg_date, end_date):
-    for _ in range(5):
+    return c.get_imports_on_period(cty, prod, beg_date, end_date)
+
+def fetch_with_retries(fn, *args, attempts=10, sleep_s=0.5):
+    last_err = None
+    warned = st.session_state.get("census_slow_msg_shown", False)
+    placeholder = st.markdown("Fetching your data...")
+
+    for _ in range(attempts):
         try:
-            return c.get_imports_on_period(cty, prod, beg_date, end_date)
+            out = fn(*args)
+            placeholder.empty()
+            return out
         except Exception as e:
             last_err = e
-            time.sleep(0.5)
-    raise RuntimeError("Imports request failed after 5 attempts") from last_err
+            if not warned:
+                placeholder.markdown("This request is taking longer than expected. "
+                                    "This may be due to high traffic on the Census Bureau API or the size of the request. "
+                                    "Waiting a little longer usually resolves the issue, or you can try again later.")
+                st.session_state["census_slow_msg_shown"] = True
+                warned = True
+            time.sleep(sleep_s)
+
+    placeholder.empty()
+    raise RuntimeError(f"Request failed after {attempts} attempts") from last_err
+
 
 st.title("U.S. Trade Analytics")
+
 
 flow = st.sidebar.selectbox("Flow", ("Imports", "Exports"))
 cty = st.sidebar.text_input("Country", "Mexico")
@@ -55,21 +81,23 @@ except : st.error(f"HS Code {prod} could not be found. ")
 
 
 try : 
-    c.get_country_by_name(cty)
+    c_obj = c.get_country_by_name(cty)
 except:        
     try :
-        c.get_country_by_code(cty)
+        c_obj = c.get_country_by_code(cty)
     except:
         try :
-            c.get_country_by_iso2(cty)
+            c_obj = c.get_country_by_iso2(cty)
         except: st.error(f"{cty} could not be found as a country name, code or ISO2.")
+
+cty_name = c_obj.name
 
 beg_date = (st.sidebar.date_input("Beginning date", value = "2021-01-01", format = "YYYY/MM/DD"))
 beg_date_minus1 = beg_date -timedelta(days=365)
 beg_date_str = str(beg_date)[:-3]
 beg_date_minus1_str = str(beg_date_minus1)[:-3]
 
-end_date = (st.sidebar.date_input("End date", value = "2025-01-01", format = "YYYY/MM/DD"))
+end_date = (st.sidebar.date_input("End date", value = "2026-01-01", format = "YYYY/MM/DD"))
 end_date_str = str(end_date)[:-3]
 
 mapper = {"import_value" : "value", "export_value" : "value"}
@@ -78,51 +106,60 @@ if len(prod) < 6:
     ch_code = list(ch_code_desc.keys())
 else : ch_code = False
 
-if st.sidebar.button("Call"):
+if st.sidebar.button("Request", shortcut = "Cmd+Enter"):
     st.session_state.requested = True
 
 if st.session_state.requested:
     if flow == "Imports":
-        df = get_imp(cty, prod, beg_date_minus1_str, end_date_str)
-        if ch_code:
-            df_sub = get_imp(cty, ch_code, beg_date_str, end_date_str)
+        df = fetch_with_retries(get_imp, cty, prod, beg_date_minus1_str, end_date_str)
+        if ch_code: df_sub = fetch_with_retries(get_imp, cty, ch_code, beg_date_str, end_date_str)
 
     if flow == "Exports":
-        df = get_exp(cty, prod, beg_date_minus1_str, end_date_str)
-        if ch_code: df_sub = get_exp(cty, ch_code, beg_date_str, end_date_str)
+        df = fetch_with_retries(get_exp, cty, prod, beg_date_minus1_str, end_date_str)
+        if ch_code: df_sub = fetch_with_retries(get_exp, cty, ch_code, beg_date_str, end_date_str)
 
 
     df = df.rename(mapper, axis = 1)
-    df_sub = df_sub.rename(mapper, axis = 1)
+    if ch_code : df_sub = df_sub.rename(mapper, axis = 1)
 
     df["date"] = pd.to_datetime(df["date"]).dt.date
     df = df.set_index("date")
 
     df_yoy = round((df["value"] / df["value"].shift(12)).dropna()*100 -100, 2)
     df = df[df.index >= beg_date]
-    df_sub.groupby("product_name").sum("value")
+    if ch_code : df_sub.groupby("product_name").sum("value")
 
-    fig = px.pie(df_sub, values = "value", names = "product_name")
 
-    st.text(f"{flow} of '{ut.get_desc_from_code(prod)}' {"from" if flow == "Imports" else "to"} {cty}")
+    st.markdown(f"#### :blue[**{flow}**] of :green[**{ut.get_desc_from_code(prod).lower()}**] {"from" if flow == "Imports" else "to"} :orange[**{cty_name}**]")
+    
+    
+    st.divider()
     with st.container(border=True):
-        col1, col2= st.columns(2)
-        with col1:
-            df_disp = df["value"]
-            st.bar_chart(df_disp, x_label = "Date", y_label = "Value")
-        with col2:
-            st.line_chart(data= df_yoy, x_label = "Date", y_label = "% YoY Growth", color = (255,0,0))
 
-            
+        title = (f"Monthly {flow.lower()} of {ut.get_desc_from_code(prod).lower()} {"from" if flow == "Imports" else "to"} {cty_name}")
+        x = df.index
+        y = df["value"]
+        st.plotly_chart(plots.bar_chart(x, y, title))
 
+    with st.container(border=True):
+        title = f"YoY % evolution of {flow.lower()} {"from" if flow == "Imports" else "to"} {cty_name} ({beg_date_str} to {end_date_str})"
+        st.plotly_chart(plots.line_chart(df_yoy.index, df_yoy, title))
+        
+        
 
-    with st.container(border=True) : st.plotly_chart(fig)
+    with st.container(border=True) : 
+        title = f"Subcategories of HS code {prod}"
+        if ch_code : 
+            pie_chart = plots.pie_chart(df_sub, title)
+            st.plotly_chart(pie_chart)
+        else: st.text(f"HS Code {prod} is a subheading code and does not have subcategories.")
 
     if ch_code : df_desc_code = pd.DataFrame(ch_code_desc.items(), columns=["Children codes", "description"])
 
     with st.container(border = True):
         col1, col2= st.columns(2)
         with col1:
+            df_disp = df["value"]
             st.dataframe(df_disp)
         with col2:
             if ch_code: st.dataframe(df_desc_code)
@@ -131,6 +168,14 @@ if st.session_state.requested:
         
 with st.container(border=True):    
     st.subheader("HS Code Lookup")
+    st.markdown(
+        f"""
+        The **Harmonized Commodity Description and Coding System** (HS) is the international standard for classifying traded products.
+        It is structured hierarchically into **chapters** (2 digits), **headings** (4 digits), and **subheadings** (6 digits).
+        When a digit is less than 10, a leading zero must be added (e.g. '8' → '08').
+        """
+    )
+    st.divider()
     check_code = st.text_input("HS Code", width = 200, value = "08")
     try:
         prod_code = ut.get_product(check_code)
@@ -143,4 +188,8 @@ with st.container(border=True):
     except : 
         st.text(f"HS code {check_code} could not be found.")
 
+with st.container(border = True):
+    st.markdown("##### Credits")
+    st.markdown("This application relies on the API of the United States Census Bureau accessed through the [ustrade](https://github.com/fantinsib/ustrade) module. For more details, go to https://www.census.gov/data/developers.html. ")
+    st.markdown("Contributions to this project are welcome. Feel free to open an issue on [GitHub](https://github.com/fantinsib/ustrade_dashboard) or submit a pull request for any bugs or improvement suggestions.")
 
