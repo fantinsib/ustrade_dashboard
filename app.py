@@ -127,7 +127,7 @@ if st.session_state.requested:
 
     df_yoy = round((df["value"] / df["value"].shift(12)).dropna()*100 -100, 2)
     df = df[df.index >= beg_date]
-    if ch_code : df_sub.groupby("product_name").sum("value")
+    if ch_code : df_sub.groupby("product_name")["value"].sum()
 
 
     st.markdown(f"#### :blue[**{flow}**] of :green[**{ut.get_desc_from_code(prod).lower()}**] {"from" if flow == "Imports" else "to"} :orange[**{cty_name}**]")
