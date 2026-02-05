@@ -176,6 +176,7 @@ with st.container(border=True):
         """
     )
     st.divider()
+    st.markdown("#### Search the description of a code & subcodes")
     check_code = st.text_input("HS Code", width = 200, value = "08")
     try:
         prod_code = ut.get_product(check_code)
@@ -187,6 +188,26 @@ with st.container(border=True):
             st.dataframe(df_child_code)
     except : 
         st.text(f"HS code {check_code} could not be found.")
+
+    st.divider()
+    st.markdown("#### Search a code with keyword")
+    col1, col2 = st.columns(2)
+    with col1:
+        check_desc = st.text_input("Keywords", width = 200, value = "oil")
+    with col2:
+        in_codes = st.text_input("In headings/subheadings", width = 200, value = "").strip()
+        if len(in_codes) == 0: in_codes = None
+        else :
+            try :
+                ut.get_product(in_codes)
+            except:
+                st.markdown(f":red[HS Code {in_codes} could not be found. Returning all results.]")
+                in_codes = None
+    df_search = ut.search_for_code(check_desc, mode = "AND", in_codes = in_codes)
+    if df_search.empty:
+        st.markdown("The research did not return any results")
+    else : st.dataframe(df_search)
+    
 
 with st.container(border = True):
     st.markdown("##### Credits")
