@@ -16,13 +16,15 @@ st.markdown(
             radial-gradient(1200px 600px at 10% 0%, rgba(255,255,255,0.10), transparent 60%),
             radial-gradient(900px 500px at 90% 10%, rgba(255,255,255,0.08), transparent 55%),
             radial-gradient(700px 420px at 50% 90%, rgba(255,255,255,0.06), transparent 60%),
-            #151a21;
-        color: rgba(255,255,255,0.92);
+            rgba(10,10,20,0.8);
+        color: rgba(255,255,255,0.9);
     }
+
     </style>
     """,
     unsafe_allow_html=True
 )
+
 
 st.set_page_config(layout="wide")
 
@@ -133,7 +135,7 @@ if st.session_state.requested:
     st.markdown(f"#### :blue[**{flow}**] of :green[**{ut.get_desc_from_code(prod).lower()}**] {"from" if flow == "Imports" else "to"} :orange[**{cty_name}**]")
     
     
-    st.divider()
+    #st.divider()
     with st.container(border=True):
 
         title = (f"Monthly {flow.lower()} of {ut.get_desc_from_code(prod).lower()} {"from" if flow == "Imports" else "to"} {cty_name}")
@@ -141,13 +143,13 @@ if st.session_state.requested:
         y = df["value"]
         st.plotly_chart(plots.bar_chart(x, y, title))
 
-    with st.container(border=True):
+        st.divider()
         title = f"YoY % evolution of {flow.lower()} {"from" if flow == "Imports" else "to"} {cty_name} ({beg_date_str} to {end_date_str})"
         st.plotly_chart(plots.line_chart(df_yoy.index, df_yoy, title))
         
         
 
-    with st.container(border=True) : 
+        st.divider() 
         title = f"Subcategories of HS code {prod}"
         if ch_code : 
             pie_chart = plots.pie_chart(df_sub, title)
