@@ -134,7 +134,23 @@ if st.session_state.requested:
 
     st.markdown(f"#### :blue[**{flow}**] of :green[**{ut.get_desc_from_code(prod).lower()}**] {"from" if flow == "Imports" else "to"} :orange[**{cty_name}**]")
     
-    
+    with st.container(border = True):
+        st.markdown("### Key metrics on period")
+        total = df["value"].sum()
+        mean = df["value"].mean()
+        min = df["value"].min()
+        max = df["value"].max()
+        col1, col2, col3 = st.columns(3, border = True)
+        with col1:
+            st.markdown(f"{flow} value on period : ")
+            st.markdown(f"$**{total:,.0f}**")
+        with col2:
+            st.markdown(f"Average monthly value on period :")
+            st.markdown(f"$**{mean:,.0f}**")
+        with col3:
+            st.markdown(f"Lowest value on period : $**{min:,.0f}**")
+            st.markdown(f"Max value on period : $**{max:,.0f}**")
+
     #st.divider()
     with st.container(border=True):
 
@@ -150,13 +166,15 @@ if st.session_state.requested:
         
 
         st.divider() 
-        title = f"Subcategories of HS code {prod}"
+        title = f"Subcategories breakdown of HS code {prod}"
         if ch_code : 
             pie_chart = plots.pie_chart(df_sub, title)
             st.plotly_chart(pie_chart)
         else: st.text(f"HS Code {prod} is a subheading code and does not have subcategories.")
 
     if ch_code : df_desc_code = pd.DataFrame(ch_code_desc.items(), columns=["Children codes", "description"])
+
+
 
     with st.container(border = True):
         col1, col2= st.columns(2)
@@ -165,6 +183,8 @@ if st.session_state.requested:
             st.dataframe(df_disp)
         with col2:
             if ch_code: st.dataframe(df_desc_code)
+
+
             
     st.session_state.requested = False
         
